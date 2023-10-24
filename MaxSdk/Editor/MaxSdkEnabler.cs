@@ -24,4 +24,15 @@ public class MaxSdkEnabler : Editor
             EditorUserBuildSettings.selectedBuildTargetGroup,
             string.Join ( ";", allDefines.ToArray () ) );
     }
+    [DidReloadScripts]
+    private static void OnScriptsReloaded()
+    {
+        string definesString = PlayerSettings.GetScriptingDefineSymbolsForGroup ( EditorUserBuildSettings.selectedBuildTargetGroup );
+        List<string> allDefines = definesString.Split ( ';' ).ToList ();
+        allDefines.AddRange ( Symbols.Except ( allDefines ) );
+        PlayerSettings.SetScriptingDefineSymbolsForGroup (
+        EditorUserBuildSettings.selectedBuildTargetGroup,
+        string.Join ( ";", allDefines.ToArray () ) );
+    }
+
 }
