@@ -12,5 +12,6 @@
         "url": "https://luduarts.com"
     },
     "dependencies": {
-    }
+        "com.google.external-dependency-manager": "1.2.168"
+      }
 }
