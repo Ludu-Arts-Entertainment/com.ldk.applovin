@@ -1,0 +1,16 @@
+{
+    "name": "com.ldk.applovinsdk",
+    "version": "0.0.1",
+    "displayName": "LDK AppLovin SDK",
+    "description": "AppLovin SDK for Unity. SDK Version: 5.11.5",
+    "unity": "2021.3",
+    "icon": ".icon.png",
+    "keywords": [ "applovin", "sdk" ],
+    "author": {
+        "name": "Ludu",
+        "email": "info@luduarts.com",
+        "url": "https://luduarts.com"
+    },
+    "dependencies": {
+    }
+}
