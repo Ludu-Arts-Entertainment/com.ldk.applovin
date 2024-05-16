@@ -15,23 +15,16 @@ using System.IO;
 using AppLovinMax.ThirdParty.MiniJson;
 using UnityEditor;
 using UnityEditor.Build;
-#if UNITY_2018_1_OR_NEWER
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
-#endif
 
 namespace AppLovinMax.Scripts.IntegrationManager.Editor
 {
     /// <summary>
     /// Adds the AppLovin Quality Service plugin to the gradle template file. See <see cref="AppLovinProcessGradleBuildFile"/> for more details.
     /// </summary>
-    public class AppLovinPreProcessAndroid : AppLovinProcessGradleBuildFile,
-#if UNITY_2018_1_OR_NEWER
-        IPreprocessBuildWithReport
-#else
-        IPreprocessBuild
-#endif
+    public class AppLovinPreProcessAndroid : AppLovinProcessGradleBuildFile, IPreprocessBuildWithReport
     {
         private const string AppLovinSettingsFileName = "applovin_settings.json";
 
@@ -44,16 +37,19 @@ namespace AppLovinMax.Scripts.IntegrationManager.Editor
         private const string KeyConsentFlowEnabled = "consent_flow_enabled";
         private const string KeyConsentFlowTermsOfService = "consent_flow_terms_of_service";
         private const string KeyConsentFlowPrivacyPolicy = "consent_flow_privacy_policy";
-        private const string KeyConsentFlowAdvertisingPartners = "consent_flow_advertising_partners";
-        private const string KeyConsentFlowIncludeDefaultAdvertisingPartners = "consent_flow_should_include_default_advertising_partners";
-        private const string KeyConsentFlowAnalyticsPartners = "consent_flow_analytics_partners";
-        private const string KeyConsentFlowIncludeDefaultAnalyticsPartners = "consent_flow_should_include_default_analytics_partners";
+        private const string KeyConsentFlowDebugUserGeography = "consent_flow_debug_user_geography";
+        
+        private const string UmpLegacyDependencyLine = "<androidPackage spec=\"com.google.android.ump:user-messaging-platform:2.1.0\" />";
+        private const string UmpDependencyLine = "<androidPackage spec=\"com.google.android.ump:user-messaging-platform:2.+\" />";
+        private const string AndroidPackagesContainerElementString = "androidPackages";
 
-#if UNITY_2018_1_OR_NEWER
         public void OnPreprocessBuild(BuildReport report)
-#else
-        public void OnPreprocessBuild(BuildTarget target, string path)
-#endif
+        {
+            PreprocessAppLovinQualityServicePlugin();
+            AddGoogleCmpDependencyIfNeeded();
+        }
+
+        private static void PreprocessAppLovinQualityServicePlugin()
         {
             // We can only process gradle template file here. If it is not available, we will try again in post build on Unity IDEs newer than 2018_2 (see AppLovinPostProcessGradleProject).
             if (!AppLovinIntegrationManager.GradleTemplateEnabled) return;
@@ -64,15 +60,6 @@ namespace AppLovinMax.Scripts.IntegrationManager.Editor
             RemoveAppLovinQualityServiceOrSafeDkPlugin(AppLovinIntegrationManager.GradleTemplatePath);
 #else
             AddAppLovinQualityServicePlugin(AppLovinIntegrationManager.GradleTemplatePath);
-#endif
-
-            // For Unity 2018.2 or newer, the consent flow is enabled in MaxPostProcessBuildAndroid.
-#if !UNITY_2018_2_OR_NEWER
-            if (AppLovinSettings.Instance.ShowInternalSettingsInIntegrationManager)
-            {
-                var consentFlowSettingsFilePath = Path.Combine("Assets", "Plugin/Android/res/raw/");
-                EnableConsentFlowIfNeeded(consentFlowSettingsFilePath);
-            }
 #endif
         }
 
@@ -105,20 +92,10 @@ namespace AppLovinMax.Scripts.IntegrationManager.Editor
                 consentFlowSettings[KeyConsentFlowTermsOfService] = termsOfServiceUrl;
             }
 
-            consentFlowSettings[KeyConsentFlowIncludeDefaultAdvertisingPartners] = AppLovinInternalSettings.Instance.ConsentFlowIncludeDefaultAdvertisingPartnerUrls;
-            var advertisingPartnerUrls = AppLovinInternalSettings.Instance.ConsentFlowAdvertisingPartnerUrls;
-            if (MaxSdkUtils.IsValidString(advertisingPartnerUrls))
+            var debugUserGeography = AppLovinInternalSettings.Instance.DebugUserGeography;
+            if (debugUserGeography == MaxSdkBase.ConsentFlowUserGeography.Gdpr)
             {
-                var advertisingPartnerUrlsList = advertisingPartnerUrls.Split(',').ToList();
-                consentFlowSettings[KeyConsentFlowAdvertisingPartners] = advertisingPartnerUrlsList;
-            }
-
-            consentFlowSettings[KeyConsentFlowIncludeDefaultAnalyticsPartners] = AppLovinInternalSettings.Instance.ConsentFlowIncludeDefaultAnalyticsPartnerUrls;
-            var analyticsPartnerUrls = AppLovinInternalSettings.Instance.ConsentFlowAnalyticsPartnerUrls;
-            if (MaxSdkUtils.IsValidString(analyticsPartnerUrls))
-            {
-                var analyticsPartnerUrlsList = analyticsPartnerUrls.Split(',').ToList();
-                consentFlowSettings[KeyConsentFlowAnalyticsPartners] = analyticsPartnerUrlsList;
+                consentFlowSettings[KeyConsentFlowDebugUserGeography] = "gdpr";
             }
 
             var applovinSdkSettings = new Dictionary<string, object>();
@@ -130,7 +107,7 @@ namespace AppLovinMax.Scripts.IntegrationManager.Editor
 
         public static void EnableTermsFlowIfNeeded(string rawResourceDirectory)
         {
-            if (AppLovinSettings.Instance.ShowInternalSettingsInIntegrationManager) return;
+            if (AppLovinInternalSettings.Instance.ConsentFlowEnabled) return;
 
             // Check if terms flow is enabled for this format. No need to create the applovin_consent_flow_settings.json if consent flow is disabled.
             var consentFlowEnabled = AppLovinSettings.Instance.ConsentFlowEnabled;
@@ -203,6 +180,21 @@ namespace AppLovinMax.Scripts.IntegrationManager.Editor
             {
                 MaxSdkLogger.UserError("Deleting applovin_settings.json failed due to: " + exception.Message);
                 Console.WriteLine(exception);
+            }
+        }
+
+        private static void AddGoogleCmpDependencyIfNeeded()
+        {
+            // Remove the legacy fixed UMP version if it exists, we'll add the dependency with a dynamic version below.
+            TryRemoveStringFromDependencyFile(UmpLegacyDependencyLine, AndroidPackagesContainerElementString);
+
+            if (AppLovinInternalSettings.Instance.ConsentFlowEnabled)
+            {
+                TryAddStringToDependencyFile(UmpDependencyLine, AndroidPackagesContainerElementString);
+            }
+            else
+            {
+                TryRemoveStringFromDependencyFile(UmpDependencyLine, AndroidPackagesContainerElementString);
             }
         }
 

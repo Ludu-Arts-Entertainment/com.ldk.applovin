@@ -1,9 +1,9 @@
 {
     "name": "com.ldk.applovin",
-    "version": "5.11.5",
+    "version": "6.5.1",
     "displayName": "AppLovin MAX",
-    "description": "AppLovin MAX SDK for Unity. SDK Version: 5.11.5",
-    "unity": "2021.3",
+    "description": "AppLovin MAX SDK for Unity. SDK Version: 6.5.1",
+    "unity": "2022.3",
     "icon": ".icon.png",
     "keywords": [ "applovin", "sdk", "max"],
     "author": {
